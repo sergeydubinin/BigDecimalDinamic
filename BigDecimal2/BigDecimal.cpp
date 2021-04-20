@@ -1,5 +1,6 @@
 #include <cstring>
 #include <algorithm>
+#include <cmath>
 #include "BigDecimal.h"
 
 BigDecimal::BigDecimal() : length(1), size(1)
@@ -55,7 +56,11 @@ BigDecimal::BigDecimal(const BigDecimal& number)
 
 BigDecimal::BigDecimal(BigDecimal&& number) : digits(nullptr)
 {
-	*this = std::move(number);
+	digits = number.digits;
+	length = number.length;
+	size = number.size;
+
+	number.digits = nullptr;
 }
 
 BigDecimal& BigDecimal::operator=(const BigDecimal& number)
@@ -68,32 +73,23 @@ BigDecimal& BigDecimal::operator=(const BigDecimal& number)
 	return *this;
 }
 
-BigDecimal& BigDecimal::operator=(BigDecimal&& number)
-{
-	if (this != &number)
-	{
-		delete[] digits;
-
-		digits = number.digits;
-		length = number.length;
-		size = number.size;
-
-		number.digits = nullptr;
-	}
-	return *this;
-}
-
 void BigDecimal::from_str(const char* str)
 {
 	if (str == nullptr) 
 	{
-		throw ("Initialization by nullptr");
+		throw invalid_argument("Initialization by nullptr");
 	}
 
 	delete[] digits;
 
 	size = strlen(str);
+
 	if (size && str[0] == '-')
+	{
+		size--;
+	}
+
+	if (size && str[0] == '+')
 	{
 		size--;
 	}
@@ -106,11 +102,17 @@ void BigDecimal::from_str(const char* str)
 	{
 		digits[size] = '0';
 		length = 1;
+		digits[0] = '0';
 		return;
 	}
 	else if (n && str[0] == '-')
 	{
 		digits[size] = '9';
+		n--;
+	}
+	else if (n && str[0] == '+')
+	{
+		digits[size] = '0';
 		n--;
 	}
 	else
@@ -126,7 +128,7 @@ void BigDecimal::from_str(const char* str)
 
 	if (length == 0 || length != n)
 	{
-		throw ("Invalid string passed to constructor");
+		throw invalid_argument ("Invalid string passed to constructor");
 	}
 }
 
@@ -145,7 +147,24 @@ void BigDecimal::mul10()
 
 	if (length == size)
 	{
-		enlarge(size + 1);
+		auto newSize = size + 1;
+		auto temp = new char[newSize + 2]();
+		for (int i = length; i > 0; i--)
+		{
+			temp[i] = digits[i - 1];
+		}
+		for (int j = length + 1; j < newSize; j++)
+		{
+			temp[j] = '0';
+		}
+		temp[newSize] = digits[size];
+		temp[newSize + 1] = '\0';
+		size = newSize;
+		delete[] digits;
+		digits = temp;
+		digits[0] = '0';
+		length++;
+		return;
 	}
 
 	for (int i = length; i > 0; i--)
@@ -168,6 +187,12 @@ void BigDecimal::div10()
 		digits[i] = digits[i + 1];
 	}
 	length--;
+	if (length == 0)
+	{
+		digits[size] = '0';
+		length = 1;
+		return;
+	}
 	digits[length] = '0';
 }
 
@@ -187,17 +212,22 @@ std::ostream& operator<< (std::ostream& stream, const BigDecimal& number)
 
 std::istream& operator>> (std::istream& stream, BigDecimal& number)
 {
-	std::string str;
-	stream >> str;
+	string input;
+	getline(stream, input);
+	char* name = new char[input.length() + 2];
+	strcpy(name, input.c_str());
 	try
 	{
-		number.from_str(str.data());
+		BigDecimal a(name);
+		number = a;
 	}
 	catch (std::exception& error)
 	{
 		stream.setstate(std::ios::failbit);
 		return stream;
 	}
+	delete[] name;
+	input.clear();
 	return stream;
 }
 
@@ -290,12 +320,22 @@ void BigDecimal::changeSign()
 	else if (isNegative())
 	{
 		digits[size] = '0';
-
 	}
 }
 
 BigDecimal operator + (const BigDecimal& a, const BigDecimal& b)
 {
+	// если одно из слагаемых 0
+	if (!a.isNegative() && !a.isPositive())
+	{
+		return b;
+	}
+
+	if (!b.isNegative() && !b.isPositive())
+	{
+		return a;
+	}
+
 	auto cur = a;
 	auto number = b;
 
@@ -443,6 +483,23 @@ BigDecimal operator + (const BigDecimal& a, const BigDecimal& b)
 				hasAdd = false;
 			}
 		}
+		//результат - 0
+		bool isZero = true;
+		for (int i = 0; i < cur.size; i++)
+		{
+			if (str[i] != '0')
+			{
+				isZero = false;
+				break;
+			}
+		}
+
+		if (isZero)
+		{
+			delete[] c1;
+			delete[] c2;
+			return BigDecimal();
+		}
 		//результат - положительное число
 		if (hasAdd)
 		{
@@ -521,6 +578,103 @@ void BigDecimal::copy(const BigDecimal& number)
 	{
 		digits[i] = number.digits[i];
 	}
+}
+
+int BigDecimal::cmp(const BigDecimal& number) const
+{
+	if (digits[size] == number.digits[number.size])
+	{
+		if ((isPositive() && number.isPositive()) || (isNegative() && number.isNegative()))
+		{
+			if (size != number.size)
+			{
+				return (size > number.size) ? 1 : -1;
+			}
+
+			if (length != number.length)
+			{
+				return (length > number.length) ? 1 : -1;
+			}
+			auto ptr1 = digits;
+			auto ptr2 = number.digits;
+			while (*ptr1 == *ptr2 && *ptr1 != '\0')
+			{
+				++ptr1;
+				++ptr2;
+			}
+
+			if (*ptr1 == '\0')
+			{
+				return 0;
+			}
+
+			return (*ptr1 > * ptr2) ? 1 : -1;
+		}
+		else
+		{
+			if (isPositive())
+			{
+				return 1;
+			}
+			else if (isNegative())
+			{
+				return -1;
+			}
+			else
+			{
+				if (number.isPositive())
+				{
+					return -1;
+				}
+				else if (number.isNegative())
+				{
+					return 1;
+				}
+				return 0;
+			}
+		}
+	}
+	else // разные знаки
+	{
+		//отрицательное число меньше
+		if (isNegative())
+		{
+			return -1;
+		}
+
+		return 1;
+	}
+	return 0;
+}
+
+bool operator>(const BigDecimal& a, const BigDecimal& b)
+{
+	return a.cmp(b) > 0;
+}
+
+bool operator<(const BigDecimal& a, const BigDecimal& b)
+{
+	return a.cmp(b) < 0;
+}
+
+bool operator>=(const BigDecimal& a, const BigDecimal& b)
+{
+	return !(a < b);
+}
+
+bool operator<=(const BigDecimal& a, const BigDecimal& b)
+{
+	return !(a > b);
+}
+
+bool operator==(const BigDecimal& a, const BigDecimal& b)
+{
+	return a.cmp(b) == 0;
+}
+
+bool operator!=(const BigDecimal& a, const BigDecimal& b)
+{
+	return !(a == b);
 }
 
 void BigDecimal::enlarge(int newSize)

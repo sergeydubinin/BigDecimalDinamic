@@ -10,10 +10,11 @@ private:
 	int size;
 	char* digits;
 	void from_str(const char* str);
-	char* operator ~() const;
 	void changeSign();
 	void copy(const BigDecimal& number);
+	int cmp(const BigDecimal& number) const;
 	void enlarge(int newSize);
+	char* operator ~() const;
 
 public:
 	BigDecimal();
@@ -22,7 +23,6 @@ public:
 	BigDecimal(const BigDecimal& number);
 	BigDecimal(BigDecimal&& number);
 	BigDecimal& operator=(const BigDecimal& number);
-	BigDecimal& operator=(BigDecimal&& number);
 	void mul10();
 	void div10();
 	friend std::ostream& operator<< (std::ostream& stream, const BigDecimal& number);
@@ -32,4 +32,12 @@ public:
 	friend BigDecimal operator + (const BigDecimal& a, const BigDecimal& b);
 	friend BigDecimal operator - (const BigDecimal& a, const BigDecimal& b);
 	~BigDecimal();
+
+	friend bool operator> (const BigDecimal& a, const BigDecimal& b);
+	friend bool operator< (const BigDecimal& a, const BigDecimal& b);
+	friend bool operator>= (const BigDecimal& a, const BigDecimal& b);
+	friend bool operator<= (const BigDecimal& a, const BigDecimal& b);
+	friend bool operator== (const BigDecimal& a, const BigDecimal& b);
+	friend bool operator!= (const BigDecimal& a, const BigDecimal& b);
 };
+
