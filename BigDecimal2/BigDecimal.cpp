@@ -56,11 +56,22 @@ BigDecimal::BigDecimal(const BigDecimal& number)
 
 BigDecimal::BigDecimal(BigDecimal&& number) : digits(nullptr)
 {
-	digits = number.digits;
-	length = number.length;
-	size = number.size;
+	*this = std::move(number);
+}
 
-	number.digits = nullptr;
+BigDecimal& BigDecimal::operator=(BigDecimal&& number)
+{
+	if (this != &number)
+	{
+		delete[] digits;
+ 
+		digits = number.digits;
+		length = number.length;
+		size = number.size;
+
+		number.digits = nullptr;
+	}
+	return *this;
 }
 
 BigDecimal& BigDecimal::operator=(const BigDecimal& number)
@@ -224,10 +235,10 @@ std::istream& operator>> (std::istream& stream, BigDecimal& number)
 	catch (std::exception& error)
 	{
 		stream.setstate(std::ios::failbit);
+		delete[] name;
 		return stream;
 	}
 	delete[] name;
-	input.clear();
 	return stream;
 }
 

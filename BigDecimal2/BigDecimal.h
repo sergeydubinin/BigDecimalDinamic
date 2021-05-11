@@ -22,6 +22,7 @@ public:
 	BigDecimal(const char* str);
 	BigDecimal(const BigDecimal& number);
 	BigDecimal(BigDecimal&& number);
+	BigDecimal& operator=(BigDecimal&& number);
 	BigDecimal& operator=(const BigDecimal& number);
 	void mul10();
 	void div10();
